@@ -149,7 +149,7 @@ namespace DSFiles_Server.Routes
                 {
                     var lastSize = await DSFilesHelper.GetAttachmentSize(refreshed.Last());
 
-                    contentLength = ((attachments.Length - 1) * CHUNK_SIZE) + lastSize;
+                    contentLength = ((attachments.Length - 1) * (long)CHUNK_SIZE) + lastSize;
                 }
 
                 //res.Send('[' + string.Join(", ",attachments)+ ']');
@@ -203,13 +203,20 @@ namespace DSFiles_Server.Routes
                         res.SendStatus(416, "The data content is compressed and cant send specific range");
                         return;
                     }
+                    var rangeStr = string.Join("", range.Split('-')[0].Where(char.IsNumber));
 
-                    long rangeNum = long.Parse(string.Join("", range.Split('-')[0].Where(char.IsNumber)));
+                    if (!long.TryParse(rangeStr, out long rangeNum) || rangeNum >= contentLength)
+                    {
+                        res.StatusCode = 416;
+                        res.Headers["Content-Range"] = $"bytes */{contentLength}";
+                        return;
+                    }
+
                     int chunk = (int)(rangeNum / CHUNK_SIZE);
 
                     var offset = (int)(rangeNum % CHUNK_SIZE);
 
-                    long start = (chunk * CHUNK_SIZE) + offset;
+                    long start = ((long)chunk * CHUNK_SIZE) + offset;
                     long end = contentLength - 1;
 
                     res.ContentLength = end - start + 1;
@@ -253,22 +260,28 @@ namespace DSFiles_Server.Routes
 
         public const int MaxRetries = 3;
 
-        private static async Task SendFullFile(HttpResponse res, byte[]? key, string[] attachments, int startChunk, int offset = 0, CancellationToken token = default)
+        private static async Task SendFullFile(HttpResponse res, byte[]? key, string[] attachments, int startChunk, int offset = 0, CancellationToken ct = default)
         {
             int part = 0;
             var stream = res.BodyWriter.AsStream();
 
             using (AesCTRStream ts = new AesCTRStream(stream, key))
             {
-                while (part < attachments.Length && !token.IsCancellationRequested)
+                while (part < attachments.Length && !ct.IsCancellationRequested)
                 {
                     try
                     {
+
                         string[] refreshedUrls = await DSFilesHelper.RefreshUrls(attachments.Skip(part).Take(attachments.Length - part > 0 ? RefreshUrlsChunkSize : part - attachments.Length).ToArray());
 
                         for (int e = part; e < part + RefreshUrlsChunkSize && e < attachments.Length; e++)
                         {
-                            if (token.IsCancellationRequested)
+                            if (e==49)
+                            {
+                                Console.Beep();
+                            }
+
+                            if (ct.IsCancellationRequested)
                                 break;
 
                             string url = refreshedUrls[e - part];
@@ -287,29 +300,34 @@ namespace DSFiles_Server.Routes
                                 {
                                     response.EnsureSuccessStatusCode();
 
-                                    //dataPart = await response.Content.ReadAsByteArrayAsync();
+                                    if (e + 1 != attachments.Length && response.Content.Headers.ContentLength != CHUNK_SIZE)
+                                    {
+                                        throw new InvalidDataException("Chunk size is not consistent");
+                                    }
 
+                                    //dataPart = await response.Content.ReadAsByteArrayAsync();
+                                    
                                     if (offset != 0 && e == 0)
                                     {
                                         if (offset > CHUNK_SIZE)
                                             throw new InvalidDataException("Something terribly terrible happened with the offset.");
 
-                                        ts.Position = ((startChunk + e) * CHUNK_SIZE) + offset;
+                                        ts.Position = ((long)(startChunk + e) * CHUNK_SIZE) + offset;
                                     }
                                     else
                                     {
-                                        ts.Position = (startChunk + e) * CHUNK_SIZE;
+                                        ts.Position = (long)(startChunk + e) * CHUNK_SIZE;
                                     }
 
-                                    using (var dataStream = await response.Content.ReadAsStreamAsync(token))
+                                    using (var dataStream = await response.Content.ReadAsStreamAsync(ct))
                                     {
                                         byte[] buffer = new byte[81920];
 
                                         int bytesRead;
 
-                                        while (!token.IsCancellationRequested && (bytesRead = await dataStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                                        while (!ct.IsCancellationRequested && (bytesRead = await dataStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                                         {
-                                            await ts.WriteAsync(buffer, 0, bytesRead, token);
+                                            await ts.WriteAsync(buffer, 0, bytesRead, ct);
 
                                             /*if (offset < CHUNK_SIZE)
                                                 offset += bytesRead;*/

@@ -113,10 +113,10 @@ namespace DSFiles_Shared
 
         public override void Write(byte[] buffer, int offset, int count) => this.WriteAsync(buffer, offset, count).GetAwaiter().GetResult();
 
-        public new async Task WriteAsync(byte[] buffer, int offset, int count)
+        public new async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             Transform(buffer, this.Position);
-            await _baseStream.WriteAsync(buffer, offset, count);
+            await _baseStream.WriteAsync(buffer, offset, count, cancellationToken);
             this.Position += count;
         }
 

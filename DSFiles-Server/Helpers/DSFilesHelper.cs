@@ -56,22 +56,24 @@ namespace DSFiles_Server.Helpers
         {
             if (urls.Length > 50) throw new ArgumentOutOfRangeException(nameof(urls), "Urls length cant be bigger than 50");
 
-            var refreshedUrls = new List<string>(urls.Length);
-            var urlsToRefresh = new List<string>(urls.Length);
+            string[] refreshedUrls = new string[urls.Length];
 
-            foreach (var url in urls)
+            var urlsToRefresh = new HashSet<string>();
+
+            for (int i = 0; i < urls.Length; i++)
             {
-                if (attachementsCache.ContainsKey(url))
-                {
-                    var info = attachementsCache[url];
+                var url = urls[i];
 
+                if (attachementsCache.TryGetValue(url, out var info))
+                {
                     if ((DateTime.Now - info.time).TotalMinutes >= (23 * 60) + 55)
                     {
                         attachementsCache.TryRemove(url, out _);
+                        urlsToRefresh.Add(url);
                     }
                     else
                     {
-                        refreshedUrls.Add(url + info.refreshedUrl);
+                        refreshedUrls[i] = url + info.refreshedUrl;
                     }
                 }
                 else
@@ -82,32 +84,45 @@ namespace DSFiles_Server.Helpers
 
             if (urlsToRefresh.Count > 0)
             {
-                string[] refreshedUrlsFromApi = await RefreshUrlsCore(urlsToRefresh.ToArray());
+                var refreshedUrlsFromApi = await RefreshUrlsCore(urlsToRefresh.ToArray());
 
-                for (int i = 0; i < urlsToRefresh.Count; i++)
+                for (int i = 0; i < urls.Length; i++)
                 {
-                    if (attachementsCache.Count >= maxCacheSize)
+                    if (refreshedUrls[i] == null)
                     {
-                        var oldestKey = attachementsCache.Keys.First();
+                        var originalUrl = urls[i];
 
-                        attachementsCache.TryRemove(oldestKey, out _);
+                        if (refreshedUrlsFromApi.TryGetValue(originalUrl, out var refreshedUrl))
+                        {
+                            if (attachementsCache.Count >= maxCacheSize)
+                            {
+                                var oldestKey = attachementsCache.Keys.FirstOrDefault();
+                                if (oldestKey != null) attachementsCache.TryRemove(oldestKey, out _);
+                            }
+
+                            if (!string.IsNullOrEmpty(refreshedUrl) && refreshedUrl.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                var parts = refreshedUrl.Split('?');
+                                if (parts.Length > 1)
+                                {
+                                    attachementsCache[originalUrl] = ('?' + parts[1], DateTime.Now);
+                                }
+                            }
+
+                            refreshedUrls[i] = refreshedUrl;
+                        }
+                        else
+                        {
+                            refreshedUrls[i] = originalUrl;
+                        }
                     }
-
-                    var refreshedUrl = refreshedUrlsFromApi[i];
-
-                    if (refreshedUrl.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        attachementsCache[urlsToRefresh[i]] = ('?' + refreshedUrl.Split('?')[1], DateTime.Now);
-                    }
-
-                    refreshedUrls.Add(refreshedUrl);
                 }
             }
 
-            return refreshedUrls.ToArray();
+            return refreshedUrls;
         }
 
-        private static async Task<string[]> RefreshUrlsCore(string[] urls)
+        private static async Task<Dictionary<string,string>> RefreshUrlsCore(string[] urls)
         {
             if (urls.Length > 50) throw new ArgumentOutOfRangeException(nameof(urls), "Urls length cant be bigger than 50");
 
@@ -123,7 +138,12 @@ namespace DSFiles_Server.Helpers
                 {
                     var str = await res.Content.ReadAsStringAsync();
 
-                    return JsonNode.Parse(str)["refreshed_urls"].AsArray().Select(element => (string)element["refreshed"]).ToArray();
+                    return JsonNode.Parse(str)["refreshed_urls"]
+                        .AsArray()
+                        .ToDictionary(
+                            element => (string)element["original"],
+                            element => (string)element["refreshed"]
+                        );
                 }
             }
         }
