@@ -56,27 +56,32 @@ namespace DSFiles_Client.CGuis
                     return;
                 }
 
-                Application.Run(new Progress(new Action(async () =>
+                var prog = new Progress()
                 {
-                    DiscordFilesSpliter.ConsoleProgress = WindowsHelper.GetProgress();
-
-                    string filename = sfd.FileName;
-
-                    Console.WriteLine();
-
-                    using (FileStream fs = File.Open(filename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    ActionToRun = new Action(async () =>
                     {
-                        await DiscordFilesSpliter.Decode(seed, key, fs);
-                    }
+                        DiscordFilesSpliter.ConsoleProgress = WindowsHelper.GetProgress();
 
-                    //byte[] fileSeed = Convert.FromBase64String("AQMgxMbmo5kPC0BEaaeFEhAUUEQAq4USEB4whI2uhRIQCgDEV7GFEhA=");
+                        string filename = sfd.FileName;
 
-                    //WFIMEncoder.Decode(fileSeed, "resultado.zip").GetAwaiter().GetResult();
+                        Console.WriteLine();
 
-                    //Console.WriteLine(Convert.ToBase64String(WFIMEncoder.Decode(fileSeed).Result).ToString());
+                        using (FileStream fs = File.Open(filename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                        {
+                            await DiscordFilesSpliter.Decode(seed, key, fs);
+                        }
 
-                    await Task.Delay(2000);
-                })));
+                        //byte[] fileSeed = Convert.FromBase64String("AQMgxMbmo5kPC0BEaaeFEhAUUEQAq4USEB4whI2uhRIQCgDEV7GFEhA=");
+
+                        //WFIMEncoder.Decode(fileSeed, "resultado.zip").GetAwaiter().GetResult();
+
+                        //Console.WriteLine(Convert.ToBase64String(WFIMEncoder.Decode(fileSeed).Result).ToString());
+
+                        await Task.Delay(2000);
+                    })
+                };
+
+                App.Run(prog);
             };
         }
     }

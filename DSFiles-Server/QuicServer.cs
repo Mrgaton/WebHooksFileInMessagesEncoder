@@ -63,6 +63,9 @@ namespace DSFiles_Server
                     var conn = await listener.AcceptConnectionAsync(ct);
                     Console.WriteLine($"Accepted {conn.RemoteEndPoint}");
 
+                    ZstandardStream zs = new ZstandardStream(new MemoryStream(), ZstandardCompressionOptions, leaveOpen: true);
+
+
                     /*var pingStream = await conn.AcceptInboundStreamAsync(ct);
 
                     Task.Factory.StartNew(() =>
@@ -128,6 +131,8 @@ namespace DSFiles_Server
                             }
                         }
                     });
+
+
 
                   /*  Thread.Sleep(-1);
 

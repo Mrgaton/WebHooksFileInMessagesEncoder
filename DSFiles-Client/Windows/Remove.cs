@@ -21,33 +21,38 @@ namespace DSFiles_Client.CGuis
                     return;
                 }
 
-                Application.Run(new Progress(new Action(async () =>
+                var prog = new Progress()
                 {
-                    string data = seedTextField.Text.Split('/').Last();
-
-                    var splited = data.Split(':');
-
-                    if (splited.Any(c => c.Contains('$')))
+                    ActionToRun = new Action(async () =>
                     {
-                        Application.Invoke(() =>
+                        string data = seedTextField.Text.Split('/').Last();
+
+                        var splited = data.Split(':');
+
+                        if (splited.Any(c => c.Contains('$')))
                         {
-                            MessageBox.ErrorQuery(App!, "DSFiles Manager", "The seed may be not a remove token", "ok");
-                        });
+                            Application.Invoke(() =>
+                            {
+                                MessageBox.ErrorQuery(App!, "DSFiles Manager", "The seed may be not a remove token", "ok");
+                            });
 
-                        return;
-                    }
+                            return;
+                        }
 
-                    var webHookHelper = new WebHookHelper(Program.client, BitConverter.ToUInt64(splited[1].FromBase64Url()), splited[2]);
+                        var webHookHelper = new WebHookHelper(Program.client, BitConverter.ToUInt64(splited[1].FromBase64Url()), splited[2]);
 
-                    ulong[] ids = new DiscordFilesSpliter.GorillaTimestampCompressor().Decompress(splited[0].FromBase64Url());
+                        ulong[] ids = new DiscordFilesSpliter.GorillaTimestampCompressor().Decompress(splited[0].FromBase64Url());
 
-                    Progress.infoLabel.Text = "Removing " + ids.Length + " chunks please wait";
-                    Progress.logs.Add("Removing file chunks (" + ids.Length + ")");
+                        Progress.infoLabel.Text = "Removing " + ids.Length + " chunks please wait";
+                        Progress.logs.Add("Removing file chunks (" + ids.Length + ")");
 
-                    var progress = WindowsHelper.GetProgress();
+                        var progress = WindowsHelper.GetProgress();
 
-                    await webHookHelper.RemoveMessages(ids, progress);
-                })));
+                        await webHookHelper.RemoveMessages(ids, progress);
+                    })
+                };
+
+                App.Run(prog);
             };
         }
     }

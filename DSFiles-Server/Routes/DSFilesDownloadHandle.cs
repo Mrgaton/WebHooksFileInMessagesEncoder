@@ -204,7 +204,7 @@ namespace DSFiles_Server.Routes
                         return;
                     }
 
-                    long rangeNum = long.Parse(string.Join("", range.Where(char.IsNumber)));
+                    long rangeNum = long.Parse(string.Join("", range.Split('-')[0].Where(char.IsNumber)));
                     int chunk = (int)(rangeNum / CHUNK_SIZE);
 
                     var offset = (int)(rangeNum % CHUNK_SIZE);
@@ -294,11 +294,11 @@ namespace DSFiles_Server.Routes
                                         if (offset > CHUNK_SIZE)
                                             throw new InvalidDataException("Something terribly terrible happened with the offset.");
 
-                                        ts.Position = ((startChunk + e + part) * CHUNK_SIZE) + offset;
+                                        ts.Position = ((startChunk + e) * CHUNK_SIZE) + offset;
                                     }
                                     else
                                     {
-                                        ts.Position = (startChunk + e + part) * CHUNK_SIZE;
+                                        ts.Position = (startChunk + e) * CHUNK_SIZE;
                                     }
 
                                     using (var dataStream = await response.Content.ReadAsStreamAsync(token))
