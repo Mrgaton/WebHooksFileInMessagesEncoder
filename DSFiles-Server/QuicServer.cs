@@ -87,52 +87,6 @@ namespace DSFiles_Server
                     var stream = await conn.AcceptInboundStreamAsync(ct);
 
 
-                    Task.Factory.StartNew(async () =>
-                    {
-                        byte[] b = new byte[64 * 1024 * 1024];
-
-                        while (true)
-                        {
-                            try
-                            {
-                                await stream.WriteAsync(b);
-                            }
-                            catch (QuicException)
-                            {
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(ex.ToString());
-                            }
-                        }
-                    });
-
-                    Task.Factory.StartNew(async () =>
-                    {
-                        byte[] c = new byte[64 * 1024];
-
-                        while (true)
-                        {
-                            try
-                            {
-                                await stream.ReadAsync(c);
-                            }
-                            catch (QuicException)
-                            {
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(ex.ToString());
-                            }
-                        }
-                    });
-
-
-
-                  /*  Thread.Sleep(-1);
-
                     if (stream.Type != QuicStreamType.Bidirectional)
                     {
                         stream.Close();
@@ -158,7 +112,7 @@ namespace DSFiles_Server
                         throw new Exception("Version mismatch");
                     }
 
-                   Task.Factory.StartNew(async () => await Verify(conn, compressed ? new BrotliTransparentStream(stream) : stream, ct));*/
+                   Task.Factory.StartNew(async () => await Verify(conn, compressed ? new BrotliTransparentStream(stream) : stream, ct));
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
